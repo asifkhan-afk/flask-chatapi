@@ -14,11 +14,11 @@ Getting Started
 
 1. Clone this repository to your local machine:
 
-   git clone https://github.com/yourusername/your-repo.git
+   https://github.com/asifkhan-afk/flask-chatapi.git
 
 2. Change to the project directory:
 
-   cd your-repo
+   cd flask-chatapi
 
 3. Build the Docker image:
 
