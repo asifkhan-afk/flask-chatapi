@@ -1,0 +1,20 @@
+
+version: '3'
+services:
+  # Flask application container
+  web:
+    build: .
+    ports:
+      - "5000:5000"
+    depends_on:
+      - db  # Depend on the database container
+    environment:
+      - DATABASE_URL=sqlite:///instance/chatapp.db  # Path to the database file
+
+  # SQLite database container
+  db:
+    image: "jitesoft/sqlite"
+    volumes:
+      - ./data:/data  # Persist database data
+    # environment:
+    #   - SQLITE_DATABASE=/instance/chatapp.db  # Path to the database file
