@@ -1,9 +1,11 @@
+from . import socketio
 from flask import Blueprint,request,jsonify,session
 from flask_login import login_user,login_required,logout_user,current_user
 from .models import User,ChatRoom,Message
 from . import db
 import re
 from flask_socketio import emit,join_room,disconnect,rooms
+
 # from flask_bcrypt import Bcrypt
 
 views=Blueprint('views',__name__)
@@ -80,9 +82,8 @@ def login():
             user = User.query.filter_by(email=email).first()
             if user and user.check_password(password):
                 login_user(user, remember=True)
-                active_users = session.get('users', [])
-                if current_user.id not in active_users: active_users.append(current_user.id)
-                session['users'] = active_users
+                
+                
 
                 # Query chat rooms where the current user is a member
                 # chatrooms = ChatRoom.query.filter(ChatRoom.users.contains(current_user)).all()
@@ -100,15 +101,9 @@ def login():
     return jsonify(message='Only post method is allowed'), 400
 
 
-@views.route('/logout', methods=['GET', 'POST'])
+@views.route('/logout', methods=['POST'])
 def logout():
     try:
-        if 'users' in session:
-            active_users = session.get('users', [])
-            user_id = getattr(current_user, 'id', None)
-            if user_id and user_id in active_users:
-                active_users.remove(user_id)
-                session['users'] = active_users
         logout_user()
         return jsonify(message="Logged out successfully"), 200
     except Exception as e:
@@ -241,14 +236,14 @@ def message(room_id):
                 # Get the IDs of users in the chat room
                 chatroom_user_ids = {user.id for user in chatroom.users}
 
-                # Get the IDs of active users
-                active_users = set(session.get('users', []))
+                # get the connected users
+                active_users = session.get('active_users', {})
 
-                # Find the receivers (active users in the chat room)
-                receivers = chatroom_user_ids.intersection(active_users)
-
+                receivers = {user_id: sid for user_id, sid in active_users.items() if user_id in chatroom_user_ids}
+                # Extract the room names from the receivers dictionary
+                rooms = [sid for sid in receivers.values()]
                 # Broadcast the message to the receivers
-                emit('new_message', {'sender_id': sender_id, 'message': message.text}, room=list(receivers), namespace='/chat')
+                emit('new_message', {'message': message.text}, room=rooms, namespace='/chat')
 
                 return jsonify(message='Message sent successfully'), 200
             except Exception as e:
@@ -257,6 +252,32 @@ def message(room_id):
             return jsonify(message="UnAuthorize"),401
         
        
+
+@socketio.on('connect')
+def handle_connect():
+    # this is for debugging purposes
+    # user=User.query.filter_by(email="asif1@gmail.com").first()
+    # print(user.email)
+    # login_user(user)
+
+    usr=getattr(current_user, 'id', None)
+    if usr!=None:
+        user_id = current_user.id
+        active_users = session.get('active_users', {})
+        if user_id not in active_users:
+            active_users[user_id] = request.sid
+            session['active_users'] = active_users
+    else:
+        disconnect()
+
+@socketio.on('disconnect')
+def handle_disconnect():
+    user_id = getattr(current_user, 'id', None)
+    if user_id is not None:
+        active_users = session.get('active_users', {})
+        if user_id in active_users:
+            del active_users[user_id]
+            session['active_users'] = active_users
 
 
 
